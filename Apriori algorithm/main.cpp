@@ -19,7 +19,7 @@ int main(int argc, char** argv)
         cout << "다음 3 개의 arguments를 순서대로 입력해주세요. Minimum support, Input file name, Output file name" << "\n";
         return -1;
     }
-    double minimumSupport = stod(argv[1]);
+    double minimumSupport = stod(argv[1]) / 100; // 백분율기준으로 입력하기 때문에 100으로 나눠줘야 함
     string inputFileName = argv[2];
     string outputFileName = argv[3];
 
