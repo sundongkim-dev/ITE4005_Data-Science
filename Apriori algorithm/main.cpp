@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <set>
+#include <map>
 #include <algorithm>
 
 using namespace std;
@@ -12,11 +13,63 @@ using namespace std;
 // -1: 비정상적인 인자 개수
 // ========================
 
+typedef map<set<int>, int> map_itemset_sup;
+typedef pair<set<int>, int> itemset_sup;
+typedef set<set<int>> candidates;
 vector< set<int> > DB;
 
 void print123()
 {
     cout << "버그다!!!" << "\n";
+}
+
+// ==========================================
+// ***************Initial Scan***************
+// DB를 스캔하며 frequent한 1-itemset 얻는다.
+// ==========================================
+vector<map_itemset_sup> initialScan(double min_support)
+{
+    vector<map_itemset_sup> L(2);
+    for (auto& itemset : DB)
+    {
+        for (auto& item : itemset)
+        {
+            set<int> frequent_1_itemset;  // 1개 아이템을 지닌 아이템 셋 저장을 위한 set
+            int item_id = item;
+            int sup = 0;
+            frequent_1_itemset.insert(item_id);
+
+            if (L[1].find(frequent_1_itemset) != L[1].end())
+                continue;
+
+            for (auto& is : DB) // DB scan하면서 sup 저장
+            {
+                if (is.find(item) != is.end())
+                    sup++;
+            }
+
+            double cur_sup = (double)sup / DB.size();
+            if (cur_sup >= min_support)
+                L[1].insert(itemset_sup(frequent_1_itemset, sup));
+        }
+    }
+    return L;
+}
+
+// ===========================================
+// ********Generate Candidates from Lk********
+// Frequent한 길이 k의 itemset으로 부터
+// k+1 길이의 Candidates 생성
+// ===========================================
+set<set<int>> genCandidates(map_itemset_sup Lk)
+{
+    set<set<int>> candidate;
+    for (auto x : Lk)
+    {
+        for (auto y : x.first)
+            cout << y << " ";
+    }
+    return candidate;
 }
 
 int main(int argc, char** argv)
@@ -67,16 +120,65 @@ int main(int argc, char** argv)
         }
         readFile.close();
     }
-    // ==========================================
-    // 얻은 정보를 바탕으로 candidates 생성한다.
-    // ==========================================
-    for (auto x : DB)
+
+    // =================================================================
+    // L: k-length의 Frequent itemset과 그에 따른 sup을 저장하는 vector
+    // 최초에 DB를 스캔하며 frequent한 1-itemset 얻어서 L에 저장.
+    // =================================================================
+    vector<map_itemset_sup> L = initialScan(minimumSupport);    
+    
+    /*for (auto x : L)
     {
-        for (auto s : x)
-            cout << s << " ";
-        cout << "\n";
-    }
+        for (auto y : x)
+        {
+            for (auto z : y.first)
+            {
+                cout << z << " ";
+            }
+            cout << "\n";
+        }
+    }*/
+    candidates C = genCandidates(L[1]);
 
+    // ==========================================
+    // Frequent한 길이 k의 itemset으로 부터
+    // 길이 k+1의 candidate itemset 생성
+    // ==========================================
+    /*for (int k = 2; !L.empty(); k++)
+    {
+        set<set<int>> C = genCandidates(L[k - 1]);
+    }*/
+    
+    
 
+    // ==========================================
+    // DB를 순회하면서 생성한 candidate들 테스트
+    // 맞으면 저장하고 틀리면 drop 하며
+    // 더이상 candidate 생성되지 않으면 종료
+    // ==========================================
     return 0;
 }
+
+// =================================================================================
+// Initially, scan DB once to get frequent 1-itemset
+// Generate candidate itemsets of length(k + 1) from frequent itemsets of length k
+// Test the candidates against DB
+// Terminate when no frequent or candidate set can be generated
+// 
+// ********************************** Pseudo-code **********************************
+//
+// Ck: Candidate itemset of size k
+// Lk: frequent itemset of size k
+// L1 = {frequent items}
+// for(k=1; Lk != empty; k++) do begin
+//      Ck+1 = genCandidates(Lk);
+//      for each Xact t in DB do
+//          for each candidate c in Ck do
+//              if c is contained in t then
+//                  count++;
+//          end
+//      end
+//      Lk+1 = Candidates in Ck+1 with min_support
+// end
+// return UkLk;
+// =================================================================================
