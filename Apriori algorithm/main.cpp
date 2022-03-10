@@ -165,73 +165,62 @@ int main(int argc, char** argv)
     // L: k-length의 Frequent itemset과 그에 따른 sup을 저장하는 vector
     // 최초에 DB를 스캔하며 frequent한 1-itemset 얻어서 L에 저장.
     // =================================================================
-    vector<map_itemset_sup> L = initialScan(minimumSupport);    
-    candidates C = genCandidates(L[1]);
-    for (auto x : C)
-    {
-        for (auto y : x)
-            cout << y << " ";
-        cout << "\n";
-    }
-    cout << "\n";
-    map_itemset_sup tmp;
-    for (auto& itemset : DB)
-    {
-        for (auto& candidate : C)
-        {
-            if (isSubset(itemset, candidate))
-            {
-                for (auto z : candidate)
-                    cout << z << " ";
-                cout << "\n";
-                if (tmp.find(candidate) == tmp.end())
-                    tmp.insert({ candidate,1 });
-                else
-                    tmp[candidate]++;
-            }
-        }
-    }
-    L.push_back(tmp);
-    cout << "\n";
-    for (auto x : L[2])
-    {
-        for (auto y : x.first)
-            cout << y << " ";
-        cout << "\n";
-        cout << x.second << "\n";
-        cout << "\n";
-    }
-    cout << "\n";
-    for (auto& itemset : tmp)
-    {
-        double cur_sup = (double)itemset.second / DB.size();
-        cout << cur_sup << "\n";
-        if (cur_sup < minimumSupport)
-            L[2].erase(itemset.first);
-    }
-    cout << "\n\n";
-    for (auto x : L[2])
-    {
-        for (auto y : x.first)
-            cout << y << " ";
-        cout << "\n";
-    }
-    // ==========================================
-    // Frequent한 길이 k의 itemset으로 부터
-    // 길이 k+1의 candidate itemset 생성
-    // ==========================================
-    /*for (int k = 2; !L.empty(); k++)
-    {
-        set<set<int>> C = genCandidates(L[k - 1]);
-    }*/
-    
-    
+    vector<map_itemset_sup> L = initialScan(minimumSupport);
 
     // ==========================================
-    // DB를 순회하면서 생성한 candidate들 테스트
-    // 맞으면 저장하고 틀리면 drop 하며
+    // Frequent한 길이 k의 itemset으로 부터
+    // 길이 k+1의 candidate itemset 생성한다.
     // 더이상 candidate 생성되지 않으면 종료
     // ==========================================
+    int length = 1;
+    for (int k = 2; !L[length++].empty(); k++)
+    {
+        candidates C = genCandidates(L[k - 1]);
+        map_itemset_sup tmp;
+        for (auto& itemset : DB)
+        {
+            for (auto& candidate : C)
+            {
+                if (isSubset(itemset, candidate))
+                {
+                    if (tmp.find(candidate) == tmp.end())
+                        tmp.insert({ candidate,1 });
+                    else
+                        tmp[candidate]++;
+                }
+            }
+        }
+        // ==============================================
+        // DB를 순회하면서 생성한 앞서 candidate들 테스트
+        // Minimum support 충족하지 못하면 drop하고
+        // 충족한다면 L[k]에 추가한다.
+        // ==============================================
+        map_itemset_sup::iterator it = tmp.begin();
+        while (it != tmp.end())
+        {
+            double cur_sup = (double)it->second / DB.size();
+            if (cur_sup < minimumSupport)
+                tmp.erase(it++->first);
+            else
+                it++;
+        }
+        L.push_back(tmp);
+        if (L[k].empty())
+        {
+            length--;
+            break;
+        }
+        for (auto x : L[k])
+        {
+            for (auto y : x.first)
+            {
+                cout << y << " ";
+            }
+            cout << "\n";
+        }
+    }
+    print123();
+    cout << length << endl;
     return 0;
 }
 
