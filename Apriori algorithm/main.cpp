@@ -55,7 +55,18 @@ vector<map_itemset_sup> initialScan(double min_support)
     }
     return L;
 }
+bool chkItemset(map_itemset_sup Lk, set<int> candidate)
+{
+    for (auto item : candidate)
+    {
+        set<int> chk_itemset(candidate);
+        chk_itemset.erase(item);
 
+        if (Lk.find(chk_itemset) == Lk.end())
+            return true;
+    }
+    return false;
+}
 // ===========================================
 // ********Generate Candidates from Lk********
 // Frequent한 길이 k의 itemset으로 부터
@@ -63,13 +74,42 @@ vector<map_itemset_sup> initialScan(double min_support)
 // ===========================================
 set<set<int>> genCandidates(map_itemset_sup Lk)
 {
-    set<set<int>> candidate;
-    for (auto x : Lk)
+    set<set<int>> candidates;
+    for (auto i : Lk)
     {
-        for (auto y : x.first)
-            cout << y << " ";
+        for (auto j : Lk)
+        {
+            if (i == j)
+                continue;
+            set<int> candidate(i.first);
+            candidate.insert(j.first.begin(), j.first.end());
+
+            int k = i.first.size();
+            if (candidate.size() == k + 1)
+            {
+                if (!chkItemset(Lk, candidate))
+                    candidates.insert(candidate);
+            }
+        }
     }
-    return candidate;
+    return candidates;
+}
+
+bool isSubset(set<int> parent, set<int> pattern)
+{
+    if (parent == pattern)     // pattern과 parent 일치하면 is subset
+        return true;
+    else if (parent.size() < pattern.size()) // pattern이 parent보다 길면 is not subset
+        return false;
+    else                       // pattern 안의 item이 parent에 없다면 is not subset
+    {
+        for (auto item : pattern)
+        {
+            if (parent.find(item) == parent.end())
+                return false;
+        }
+        return true;
+    }
 }
 
 int main(int argc, char** argv)
@@ -126,20 +166,56 @@ int main(int argc, char** argv)
     // 최초에 DB를 스캔하며 frequent한 1-itemset 얻어서 L에 저장.
     // =================================================================
     vector<map_itemset_sup> L = initialScan(minimumSupport);    
-    
-    /*for (auto x : L)
+    candidates C = genCandidates(L[1]);
+    for (auto x : C)
     {
         for (auto y : x)
+            cout << y << " ";
+        cout << "\n";
+    }
+    cout << "\n";
+    map_itemset_sup tmp;
+    for (auto& itemset : DB)
+    {
+        for (auto& candidate : C)
         {
-            for (auto z : y.first)
+            if (isSubset(itemset, candidate))
             {
-                cout << z << " ";
+                for (auto z : candidate)
+                    cout << z << " ";
+                cout << "\n";
+                if (tmp.find(candidate) == tmp.end())
+                    tmp.insert({ candidate,1 });
+                else
+                    tmp[candidate]++;
             }
-            cout << "\n";
         }
-    }*/
-    candidates C = genCandidates(L[1]);
-
+    }
+    L.push_back(tmp);
+    cout << "\n";
+    for (auto x : L[2])
+    {
+        for (auto y : x.first)
+            cout << y << " ";
+        cout << "\n";
+        cout << x.second << "\n";
+        cout << "\n";
+    }
+    cout << "\n";
+    for (auto& itemset : tmp)
+    {
+        double cur_sup = (double)itemset.second / DB.size();
+        cout << cur_sup << "\n";
+        if (cur_sup < minimumSupport)
+            L[2].erase(itemset.first);
+    }
+    cout << "\n\n";
+    for (auto x : L[2])
+    {
+        for (auto y : x.first)
+            cout << y << " ";
+        cout << "\n";
+    }
     // ==========================================
     // Frequent한 길이 k의 itemset으로 부터
     // 길이 k+1의 candidate itemset 생성
