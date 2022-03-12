@@ -18,6 +18,12 @@ typedef pair<set<int>, int> itemset_sup;
 typedef set<set<int>> candidates;
 vector< set<int> > DB;
 
+struct information
+{
+    map_itemset_sup::iterator it;
+    set<int> right_powerset;
+    set<int> result;
+};
 void print123()
 {
     cout << "버그다!!!" << "\n";
@@ -110,6 +116,24 @@ bool isSubset(set<int> parent, set<int> pattern)
         }
         return true;
     }
+}
+
+candidates getPowerset(const set<int>& Lk)
+{
+    candidates powerset;
+
+    for (auto& item : Lk)
+    {
+        for (auto& subset : powerset) // 만든 부분 집합과 새로운 원소 사용해서 부분집합 생성
+        {
+            set<int> tmp(subset);
+            tmp.insert(item);
+            powerset.insert(tmp);
+        }       
+        // 1개짜리 원소도 부분집합에 추가
+        powerset.insert({ item });
+    }
+    return powerset;
 }
 
 int main(int argc, char** argv)
@@ -210,17 +234,88 @@ int main(int argc, char** argv)
             length--;
             break;
         }
-        for (auto x : L[k])
+    }
+    writeFile.open(outputFileName);
+    string s = "Output start\n";
+    
+    map_itemset_sup all_L;
+    for (auto& itemsets : L)
+        for (auto& itemset : itemsets)
+                all_L.insert(itemset);
+    
+    for (auto& itemsets : all_L)
+    {
+        for (auto& itemset : itemsets.first)
         {
-            for (auto y : x.first)
-            {
-                cout << y << " ";
-            }
+            cout << itemset << " ";
+        }
+        cout << "sup: " << itemsets.second << "\n";
+    }
+
+    vector<information> outputVector;
+    for (auto it = all_L.begin(); it != all_L.end(); it++)
+    {
+        set<int> Lk = it->first;
+        int sup = it->second;
+
+        if (Lk.size() < 2) // 1개 짜리 원소는 패스
+            continue;
+
+        set<set<int>> powersets = getPowerset(Lk);
+        powersets.erase(Lk); // 자기 자신은 삭제
+
+        for (auto& right_powerset : powersets)
+        {
+            set<int> left_powerset(Lk);
+            set<int> result;
+            set_difference(left_powerset.begin(), left_powerset.end(), right_powerset.begin(), right_powerset.end(), inserter(result, result.end()));
+            for (auto asd : right_powerset)
+                cout << asd << " ";
             cout << "\n";
+            cout << all_L[right_powerset] << "\n\n";
+            /*outputVector.push_back({ it, right_powerset, result });*/
+            /*for (auto x : result)
+                cout << x << " ";
+            cout << "\n";*/
+            string item_set, associative_item_set;
+            item_set = associative_item_set = "{";
+            for (auto& item : right_powerset)
+                item_set += (to_string(item) + ",");
+            item_set.pop_back();
+            item_set.push_back('}');
+
+            for (auto& item : result)
+                associative_item_set += (to_string(item) + ",");
+            associative_item_set.pop_back();
+            associative_item_set.push_back('}');
+
+            double sup = round(((double)it->second / DB.size()) * 100) / 100.0;
+            double confidence = round(((double)it->second / all_L[right_powerset]) * 100) / 100.0;
+            //cout << all_L[right_powerset] << "\n";
+            writeFile << item_set << '\t' << associative_item_set << '\t' << sup << '\t' << confidence << '\n';
+
         }
     }
-    print123();
-    cout << length << endl;
+    /*for (auto& idx : outputVector)
+    {
+        string item_set, associative_item_set;
+        item_set = associative_item_set = "{";
+        for (auto& item : idx.right_powerset)
+            item_set += (to_string(item) + ",");
+        item_set.pop_back();
+        item_set.push_back('}');
+
+        for (auto& item : idx.result)
+            associative_item_set += (to_string(item) + ",");
+        associative_item_set.pop_back();
+        associative_item_set.push_back('}');
+
+        double sup = round(((double)idx.it->second / DB.size()) * 100) / 100.0;
+        double confidence = round(((double)idx.it->second / all_L[idx.right_powerset]) * 100) / 100.0;
+        cout << all_L[idx.right_powerset] << "\n";
+        writeFile << item_set << '\t' << associative_item_set << '\t' << sup << '\t' << confidence << '\n';
+    }*/
+    writeFile.close();
     return 0;
 }
 
