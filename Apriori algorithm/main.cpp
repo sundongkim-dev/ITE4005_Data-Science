@@ -5,6 +5,7 @@
 #include <set>
 #include <map>
 #include <algorithm>
+#include <iomanip> 
 
 using namespace std;
 
@@ -17,17 +18,15 @@ typedef map<set<int>, int> map_itemset_sup;
 typedef pair<set<int>, int> itemset_sup;
 typedef set<set<int>> candidates;
 vector< set<int> > DB;
+map_itemset_sup all_frequent_set;
 
 struct information
 {
+    map_itemset_sup all_L;
     map_itemset_sup::iterator it;
     set<int> right_powerset;
     set<int> result;
 };
-void print123()
-{
-    cout << "버그다!!!" << "\n";
-}
 
 // ==========================================
 // ***************Initial Scan***************
@@ -40,7 +39,7 @@ vector<map_itemset_sup> initialScan(double min_support)
     {
         for (auto& item : itemset)
         {
-            set<int> frequent_1_itemset;  // 1개 아이템을 지닌 아이템 셋 저장을 위한 set
+            set<int> frequent_1_itemset;    // 1개 아이템을 지닌 아이템 셋 저장을 위한 set
             int item_id = item;
             int sup = 0;
             frequent_1_itemset.insert(item_id);
@@ -48,11 +47,9 @@ vector<map_itemset_sup> initialScan(double min_support)
             if (L[1].find(frequent_1_itemset) != L[1].end())
                 continue;
 
-            for (auto& is : DB) // DB scan하면서 sup 저장
-            {
+            for (auto& is : DB)             // DB scan하면서 sup 저장
                 if (is.find(item) != is.end())
                     sup++;
-            }
 
             double cur_sup = (double)sup / DB.size();
             if (cur_sup >= min_support)
@@ -61,6 +58,12 @@ vector<map_itemset_sup> initialScan(double min_support)
     }
     return L;
 }
+
+// ==========================================================
+// ********생성한 candidate가 적합한 지 확인하는 함수********
+// 생성한 candidate가 frequent하려면
+// 그의 부분 집합은 무조건 frequent하므로, L에 존재해야 한다.
+// ==========================================================
 bool chkItemset(map_itemset_sup Lk, set<int> candidate)
 {
     for (auto item : candidate)
@@ -69,18 +72,19 @@ bool chkItemset(map_itemset_sup Lk, set<int> candidate)
         chk_itemset.erase(item);
 
         if (Lk.find(chk_itemset) == Lk.end())
-            return true;
+            return false;
     }
-    return false;
+    return true;
 }
+
 // ===========================================
 // ********Generate Candidates from Lk********
 // Frequent한 길이 k의 itemset으로 부터
 // k+1 길이의 Candidates 생성
 // ===========================================
-set<set<int>> genCandidates(map_itemset_sup Lk)
+candidates genCandidates(map_itemset_sup Lk)
 {
-    set<set<int>> candidates;
+    candidates Ck;
     for (auto i : Lk)
     {
         for (auto j : Lk)
@@ -90,41 +94,54 @@ set<set<int>> genCandidates(map_itemset_sup Lk)
             set<int> candidate(i.first);
             candidate.insert(j.first.begin(), j.first.end());
 
-            int k = i.first.size();
+            long long k = i.first.size();
             if (candidate.size() == k + 1)
             {
-                if (!chkItemset(Lk, candidate))
-                    candidates.insert(candidate);
+                if (chkItemset(Lk, candidate))
+                    Ck.insert(candidate);
             }
         }
     }
-    return candidates;
+    return Ck;
 }
 
+// ===========================================
+// *********Subset인 지 확인하는 함수*********
+// Frequent한 길이 k의 itemset으로 부터
+// k+1 길이의 Candidates 생성
+// ===========================================
 bool isSubset(set<int> parent, set<int> pattern)
 {
-    if (parent == pattern)     // pattern과 parent 일치하면 is subset
+    // pattern과 parent 일치하면 is subset
+    if (parent == pattern)     
         return true;
-    else if (parent.size() < pattern.size()) // pattern이 parent보다 길면 is not subset
+    // pattern이 parent보다 길면 is not subset
+    else if (parent.size() < pattern.size()) 
         return false;
-    else                       // pattern 안의 item이 parent에 없다면 is not subset
+    // pattern 안의 item이 parent에 없다면 is not subset
+    else                       
     {
         for (auto item : pattern)
-        {
             if (parent.find(item) == parent.end())
                 return false;
-        }
         return true;
     }
 }
 
+// ============================================
+// *************멱집합 구하는 함수*************
+// Association Rule을 얻으려면 어떤 집합의
+// 자기 자신과 공집합을 제외한 집합을 얻어야 함.
+// 우선 멱집합을 구하고 후처리 한다.
+// ============================================
 candidates getPowerset(const set<int>& Lk)
 {
     candidates powerset;
 
     for (auto& item : Lk)
     {
-        for (auto& subset : powerset) // 만든 부분 집합과 새로운 원소 사용해서 부분집합 생성
+        // 새로 만든 부분 집합과 새로운 원소 사용해서 부분집합 생성
+        for (auto& subset : powerset) 
         {
             set<int> tmp(subset);
             tmp.insert(item);
@@ -134,6 +151,74 @@ candidates getPowerset(const set<int>& Lk)
         powerset.insert({ item });
     }
     return powerset;
+}
+
+// ============================================
+// ********Association Rule 구하는 함수********
+// Output에 출력해줄 각 Association Rule과
+// support, confidence 값을 구한다.
+// ============================================
+vector<information> find_Association_Rules(map_itemset_sup& all_L)
+{
+    vector<information> res;
+    for (auto it = all_L.begin(); it != all_L.end(); it++)
+    {
+        set<int> Lk = it->first;
+        int sup = it->second;
+
+        if (Lk.size() < 2) // 1개 짜리 원소는 패스
+            continue;
+
+        set<set<int>> powersets = getPowerset(Lk);
+        powersets.erase(Lk); // 자기 자신은 삭제
+
+        for (auto& right_powerset : powersets)
+        {
+            set<int> left_powerset(Lk);
+            set<int> result;
+            set_difference(left_powerset.begin(), left_powerset.end(), right_powerset.begin(), right_powerset.end(), inserter(result, result.end()));
+          
+            res.push_back({ all_L, it, right_powerset, result });
+        }
+    }
+    return res;
+}
+
+// ===========================================
+// ****Output.txt에 결과물 출력해주는 함수****
+// find_Association_Rules에서 얻은 정보로
+// 출력 파일에 저장해준다.
+// ===========================================
+void write_Output(vector<information>& v, ofstream& writeFile, string outputFileName)
+{
+    for (auto& idx : v)
+    {
+        string item_set, associative_item_set;
+        item_set = associative_item_set = "{";
+        for (auto& item : idx.right_powerset)
+            item_set += (to_string(item) + ",");
+        item_set.pop_back();
+
+        for (auto& item : idx.result)
+            associative_item_set += (to_string(item) + ",");
+        associative_item_set.pop_back();
+
+        double sup = (double)idx.it->second / DB.size() * 100;
+        //double confidence = (double)idx.it->second / idx.all_L[idx.right_powerset] * 100;
+        double confidence = (double)idx.it->second / all_frequent_set[idx.right_powerset] * 100;
+
+        writeFile << item_set << "}\t" << associative_item_set << "}\t" << sup << '\t' << confidence << '\n';
+    }
+}
+
+// =======================================================
+// ****주어진 입력의 조건들을 터미널에 출력해주는 함수****
+// 입력 값인 minimum support 값과 입-출력 파일의 이름 출력
+// =======================================================
+void printArgv(char** argv)
+{
+    cout << "Minimum support value: " << stod(argv[1]) / 100 << "\n\n";
+    cout << argv[2] << "의 정보를 바탕으로 " << argv[3] << "에 결과를 저장하겠습니다." << "\n";
 }
 
 int main(int argc, char** argv)
@@ -148,13 +233,13 @@ int main(int argc, char** argv)
         cout << "다음 3 개의 arguments를 순서대로 입력해주세요. Minimum support, Input file name, Output file name" << "\n";
         return -1;
     }
+    ifstream readFile;
+    ofstream writeFile;
     double minimumSupport = stod(argv[1]) / 100; // 백분율 기준으로 입력하기 때문에 100으로 나눠줘야 함
     string inputFileName = argv[2];
     string outputFileName = argv[3];
-    cout << minimumSupport << " " << inputFileName << " " << outputFileName << endl;
-
-    ifstream readFile;
-    ofstream writeFile;
+    
+    printArgv(argv);
     
     // ==========================================
     // input.txt 열어서 item_id의 set을 얻는다.
@@ -196,14 +281,14 @@ int main(int argc, char** argv)
     // 길이 k+1의 candidate itemset 생성한다.
     // 더이상 candidate 생성되지 않으면 종료
     // ==========================================
-    int length = 1;
+    long long length = 1;
     for (int k = 2; !L[length++].empty(); k++)
     {
-        candidates C = genCandidates(L[k - 1]);
+        candidates Ck = genCandidates(L[k - 1]);
         map_itemset_sup tmp;
         for (auto& itemset : DB)
         {
-            for (auto& candidate : C)
+            for (auto& candidate : Ck)
             {
                 if (isSubset(itemset, candidate))
                 {
@@ -235,90 +320,48 @@ int main(int argc, char** argv)
             break;
         }
     }
-    writeFile.open(outputFileName);
-    string s = "Output start\n";
-    
-    map_itemset_sup all_L;
+
+    // ==============================================
+    // 모든 frequent itemset을 map에 저장
+    // ==============================================
     for (auto& itemsets : L)
         for (auto& itemset : itemsets)
-                all_L.insert(itemset);
-    
-    for (auto& itemsets : all_L)
+                all_frequent_set.insert(itemset);
+
+    writeFile.open(outputFileName);
+    writeFile << fixed << setprecision(2);
+
+    for (auto& itemsets : L)
     {
-        for (auto& itemset : itemsets.first)
-        {
-            cout << itemset << " ";
-        }
-        cout << "sup: " << itemsets.second << "\n";
+        map_itemset_sup all_L;
+        for (auto& itemset : itemsets)
+            all_L.insert(itemset);
+
+        // ==============================================
+        // Association Rules 생성
+        // ==============================================
+        vector<information> outputVector = find_Association_Rules(all_L);
+
+        // ==============================================
+        // 얻은 정보를 바탕으로 support와 confidence 계산
+        // 출력 파일에 저장하기
+        // ==============================================
+        write_Output(outputVector, writeFile, outputFileName);
     }
 
-    vector<information> outputVector;
-    for (auto it = all_L.begin(); it != all_L.end(); it++)
-    {
-        set<int> Lk = it->first;
-        int sup = it->second;
-
-        if (Lk.size() < 2) // 1개 짜리 원소는 패스
-            continue;
-
-        set<set<int>> powersets = getPowerset(Lk);
-        powersets.erase(Lk); // 자기 자신은 삭제
-
-        for (auto& right_powerset : powersets)
-        {
-            set<int> left_powerset(Lk);
-            set<int> result;
-            set_difference(left_powerset.begin(), left_powerset.end(), right_powerset.begin(), right_powerset.end(), inserter(result, result.end()));
-            for (auto asd : right_powerset)
-                cout << asd << " ";
-            cout << "\n";
-            cout << all_L[right_powerset] << "\n\n";
-            /*outputVector.push_back({ it, right_powerset, result });*/
-            /*for (auto x : result)
-                cout << x << " ";
-            cout << "\n";*/
-            string item_set, associative_item_set;
-            item_set = associative_item_set = "{";
-            for (auto& item : right_powerset)
-                item_set += (to_string(item) + ",");
-            item_set.pop_back();
-            item_set.push_back('}');
-
-            for (auto& item : result)
-                associative_item_set += (to_string(item) + ",");
-            associative_item_set.pop_back();
-            associative_item_set.push_back('}');
-
-            double sup = round(((double)it->second / DB.size()) * 100) / 100.0;
-            double confidence = round(((double)it->second / all_L[right_powerset]) * 100) / 100.0;
-            //cout << all_L[right_powerset] << "\n";
-            writeFile << item_set << '\t' << associative_item_set << '\t' << sup << '\t' << confidence << '\n';
-
-        }
-    }
-    /*for (auto& idx : outputVector)
-    {
-        string item_set, associative_item_set;
-        item_set = associative_item_set = "{";
-        for (auto& item : idx.right_powerset)
-            item_set += (to_string(item) + ",");
-        item_set.pop_back();
-        item_set.push_back('}');
-
-        for (auto& item : idx.result)
-            associative_item_set += (to_string(item) + ",");
-        associative_item_set.pop_back();
-        associative_item_set.push_back('}');
-
-        double sup = round(((double)idx.it->second / DB.size()) * 100) / 100.0;
-        double confidence = round(((double)idx.it->second / all_L[idx.right_powerset]) * 100) / 100.0;
-        cout << all_L[idx.right_powerset] << "\n";
-        writeFile << item_set << '\t' << associative_item_set << '\t' << sup << '\t' << confidence << '\n';
-    }*/
     writeFile.close();
+
+    cout << "\n저장을 끝마쳤습니다.\n";
+
     return 0;
 }
 
+// =================================================================================
+// *********************************************************************************
+// ******************                                             ******************
+// ******************      The Apriori Algorithm Pseudo-Code      ******************
+// ******************                                             ******************
+// *********************************************************************************
 // =================================================================================
 // Initially, scan DB once to get frequent 1-itemset
 // Generate candidate itemsets of length(k + 1) from frequent itemsets of length k
