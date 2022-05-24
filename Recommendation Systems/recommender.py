@@ -59,13 +59,13 @@ if __name__ == '__main__':
             rated_user_similarity = user_similarity_matrix[user_id-1, rated]
             # 적절한 Neighbor가 없는 경우 유저가 부여한 rating의 평균값을 취한다.
             if rated_user_similarity.sum() == 0:
-                res.append([user_id, item_id, avg_rating[user_id-1]])
+                res.append([user_id, item_id, round(avg_rating[user_id-1])])
             else:
                 user_similarity_ratings = rated_user_similarity * (itemInfo[rated] - avg_rating[rated])
                 rat = avg_rating[user_id-1] + user_similarity_ratings.sum() / rated_user_similarity.sum()
                 res.append([user_id, item_id, round(np.clip(rat, 1, 5))])
         except IndexError as e:
-            res.append([user_id, item_id, avg_rating[user_id-1]])
+            res.append([user_id, item_id, round(avg_rating[user_id-1])])
     print("DONE")
     # save file
     np.savetxt(output_file_name, res, fmt='%d\t%d\t%s')
