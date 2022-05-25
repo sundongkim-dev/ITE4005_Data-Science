@@ -30,7 +30,7 @@ if __name__ == '__main__':
         object_coordinate = np.array([object[1], object[2]])
         #print(object_id, object_coordinate)
 
-        for neighbor in points_list:
+        for neighbor in reversed(points_list):
             neighbor_id = neighbor[0]
             neighbor_coordinate = neighbor[1]
             if object_coordinate - neighbor_coordinate[0] > eps:
@@ -46,6 +46,7 @@ if __name__ == '__main__':
     cluster_list = []
 
     visited = []
+    q = []
     for id in neighbor_list:
         if id in visited:
             continue
@@ -54,7 +55,23 @@ if __name__ == '__main__':
         
         cur_cluster = [id]
         visited.add(id)
-        cluster_id += 1
+        q.append(id)
+
+        while q:
+            cur = q.pop(0)
+            for i in neighbor_list[cur]:
+                if i in visited:
+                    continue
+                else:
+                    visited.add(i)
+                    cur_cluster.append(i)
+                    if len(neighbor_list[i]) >= minPts:
+                        q.append(i)
+        cluster_list.append(cur_cluster)
+    
+    cluster_list.sort()
+
+    cluster_id += 1
 
 
     # Save file
