@@ -20,14 +20,14 @@ if __name__ == '__main__':
 
     input_file_name = sys.argv[1]
     n = int(sys.argv[2])         # Num of clusters
-    eps = float(sys.argv[3])       # Epsilon 
+    eps = float(sys.argv[3])     # Epsilon 
     minPts = int(sys.argv[4])    # Minimum number of points
 
-    # Read Data 
+    # Read Data & sort by x coordinate
     objects = pd.read_csv(input_file_name, sep='\t', header=None, names=['id', 'x_coordinate', 'y_coordinate'])
     objects = objects.sort_values('x_coordinate').values
     
-    # Sort by x coordinate
+    # Get all neighbors per points w.r.t. Eps
     coordinates_list = []
     neighbor_list = {}
     for object in objects:
@@ -92,10 +92,6 @@ if __name__ == '__main__':
     # You can remove outlier. In other words, you don't need to include outlier in a specific cluster
     while len(cluster_list) > n:
         cluster_list.pop(0)
-    while len(cluster_list) < n:
-        cluster_list.insert(0, [])
     
     # Save file
     printFiles(input_file_name, n, cluster_list)
-
-
