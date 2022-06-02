@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["u1.base", "u1.test"]
+            "args": ["u5.base", "u5.test"]
         }
     ]
 }
